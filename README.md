@@ -1,4 +1,2 @@
-# hello-world
-hello-world
 
-This is my first time to use Git.
+This project is used for collect code around <Unity3d 游戏开发>.
