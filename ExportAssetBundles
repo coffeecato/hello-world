@@ -1,0 +1,267 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using UnityEditor;
+using UnityEngine;
+
+public class ExportAssetBundles
+{
+    private static void ClearUselessManifest(string folderName)
+    {
+        string path = "Assets/StreamingAssets/AssetBundles/" + folderName;
+
+        string[] fileNames = Directory.GetFiles(path);
+        for (int i = 0; i < fileNames.Length; ++i)
+        {
+            if (fileNames[i].Contains(".manifest") && !fileNames[i].Contains(string.Concat(folderName, ".manifest")))
+                File.Delete(fileNames[i]);
+        }
+    }
+
+    [MenuItem("Asset Bundle/Batch Build/Build AssetBundles for Win64")]
+    public static void BuildAllAssetBundlesForWin64()
+    {
+        string path = "Assets/StreamingAssets/AssetBundles/Win64";
+        if (!Directory.Exists(path))
+            Directory.CreateDirectory(path);
+
+        if( BuildPipeline.BuildAssetBundles ("Assets/StreamingAssets/AssetBundles/Win64", BuildAssetBundleOptions.None, BuildTarget.StandaloneWindows64) != null )
+        {
+            ClearUselessManifest("Win64");
+            Debug.Log("Success to building AssetBundles for Win64");
+        }
+    }
+
+    [MenuItem("Asset Bundle/Batch Build/Build AssetBundles for iOS")]
+    public static void BuildAllAssetBundlesForiOS()
+    {
+        string path = "Assets/StreamingAssets/AssetBundles/iOS";
+        if (!Directory.Exists(path))
+            Directory.CreateDirectory(path);
+
+        if( BuildPipeline.BuildAssetBundles ("Assets/StreamingAssets/AssetBundles/iOS", BuildAssetBundleOptions.None, BuildTarget.iOS) != null )
+        {
+            ClearUselessManifest("iOS");
+            Debug.Log("Success to building AssetBundles for iOS");
+        }
+    }
+
+    [MenuItem("Asset Bundle/Batch Build/Build AssetBundles for Android")]
+    public static void BuildAllAssetBundlesForAndroid()
+    {
+        string path = "Assets/StreamingAssets/AssetBundles/Android";
+        if (!Directory.Exists(path))
+            Directory.CreateDirectory(path);
+
+        if( BuildPipeline.BuildAssetBundles ("Assets/StreamingAssets/AssetBundles/Android", BuildAssetBundleOptions.None, BuildTarget.Android) )
+        {
+            ClearUselessManifest("Android");
+            Debug.Log("Success to building AssetBundles for Android");
+        }
+    }
+
+    [MenuItem("Asset Bundle/Batch Build/ReBuild AssetBundles for Win64")]
+    public static void ReBuildAllAssetBundlesForWin64()
+    {
+        string path = "Assets/StreamingAssets/AssetBundles/Win64";
+        if (Directory.Exists(path))
+            Directory.Delete(path, true);
+        Directory.CreateDirectory(path);
+
+        if( BuildPipeline.BuildAssetBundles (path, BuildAssetBundleOptions.ForceRebuildAssetBundle, BuildTarget.StandaloneWindows64) != null )
+        {
+            ClearUselessManifest("Win64");
+            Debug.Log("Success to building AssetBundles for Win64");
+        }
+    }
+
+    [MenuItem("Asset Bundle/Batch Build/ReBuild AssetBundles for iOS")]
+    public static void ReBuildAllAssetBundlesForiOS()
+    {
+        string path = "Assets/StreamingAssets/AssetBundles/iOS";
+        if (Directory.Exists(path))
+            Directory.Delete(path, true);
+        Directory.CreateDirectory(path);
+
+        if( BuildPipeline.BuildAssetBundles (path, BuildAssetBundleOptions.ForceRebuildAssetBundle, BuildTarget.iOS) != null )
+        {
+            ClearUselessManifest("iOS");
+            Debug.Log("Success to building AssetBundles for iOS");
+        }
+    }
+
+    [MenuItem("Asset Bundle/Batch Build/ReBuild AssetBundles for Android")]
+    public static void ReBuildAllAssetBundlesForAndroid()
+    {
+        string path = "Assets/StreamingAssets/AssetBundles/Android";
+        if (Directory.Exists(path))
+            Directory.Delete(path, true);
+        Directory.CreateDirectory(path);
+
+        if( BuildPipeline.BuildAssetBundles (path, BuildAssetBundleOptions.ForceRebuildAssetBundle, BuildTarget.Android) != null )
+        {
+            ClearUselessManifest("Android");
+            Debug.Log("Success to building AssetBundles for Android");
+        }
+    }
+
+    /// <summary>
+    /// 自动生成Asset bundle name
+    /// </summary>
+    //static public string[] skip_dirs_top = { "Plugins", "streamingassets", "TK2DROOT", "NGUI", "UVersionControl", "UnityVS", "PoolManagerExampleFiles", "IGSoft_Tools", "IGSoft_Resources" };		// 遍历顶层文件夹时忽略
+    static public string[] skip_dirs_all = { "Plugins", "streamingassets", "TK2DROOT", "NGUI", "UVersionControl", "UnityVS", "PoolManagerExampleFiles", "IGSoft_Tools", "IGSoft_Resources", "editor", "resources", "scenes", "scripts", "RawData", "example", "examples" };        // 遍历任何文件夹时忽略
+    static public string[] include_dirs_all = { "IGSoft_Resources/IncludeDirs" };
+
+    [MenuItem("Asset Bundle/Auto generate asset bundle name", false, 1)]
+    // 遍历/Assets下所有目录，对每个文件夹自动设定AssetBundleName, 仅把最内层文件夹打包
+    public static void GenerateAssetBundleName()
+    {
+        string dataPath = Application.dataPath;
+
+        string root_path = "";
+        string sub_dir = "";
+        int position = dataPath.LastIndexOf(@"/");
+        if (position != -1)
+        {
+            root_path = dataPath.Substring(0, position + 1);
+            sub_dir = dataPath.Substring(position + 1);
+        }
+
+        ClearAssetBundleName(root_path, sub_dir);
+        Debug.Log("Begin GenerateAssetBundleName.....");
+
+        List<string> OutPathList = new List<string>();
+        List<string> IncludeOutPathList = new List<string>();
+        OutPathList = GetFilterDirectories(@root_path, @sub_dir/*, 0*/);
+        foreach (string include_dir in include_dirs_all)
+        {
+            IncludeOutPathList = GetFilterDirectories(@root_path, @sub_dir + @"/" + include_dir, false);
+        }
+        OutPathList.AddRange(IncludeOutPathList);
+        foreach (string AssetBundleName in OutPathList)
+        {
+            AssetImporter importer = AssetImporter.GetAtPath(AssetBundleName);
+            if (importer != null)
+            {
+                importer.assetBundleName = AssetBundleName.Replace('/', '_');
+                importer.assetBundleVariant = "";
+            }
+        }
+        AssetDatabase.Refresh();
+
+        Debug.Log("End GenerateAssetBundleName.....   Total asset bundle count: " + OutPathList.Count);
+    }
+
+    static List<string> GetFilterDirectories(string root_path, string sub_dir, bool bNeedSkip = true/*, int bTopLevel*/)
+    {
+        // 需要过滤的文件夹
+        List<string> skip_dirs = new List<string>(skip_dirs_all);
+        //if (bTopLevel == 0 || bTopLevel == 1)
+        //    skip_dirs.AddRange(skip_dirs_top);
+
+        // 判断sub_dir是否需要过滤
+        string sub_folder_name = sub_dir;
+        int position = sub_dir.LastIndexOf(@"/");
+        if (position != -1)
+            sub_folder_name = sub_dir.Substring(position + 1);
+
+        if (bNeedSkip)
+        {
+            bool bSkipit = false;
+            foreach (string skip_dir in skip_dirs)
+            {
+                if (string.Compare(skip_dir, sub_folder_name, true) == 0)
+                {
+                    bSkipit = true;
+                    break;
+                }
+            }
+            if (bSkipit)
+            {
+                return new List<string>();
+            }
+        }
+
+        string[] dirs = Directory.GetDirectories(root_path + sub_dir, "*", SearchOption.TopDirectoryOnly);
+
+        // 提取文件夹名
+        string[] folder_names = new string[dirs.Length];
+        for (int i = 0; i < dirs.Length; ++i)
+        {
+            int pos = dirs[i].LastIndexOf(@"\");
+            if (pos != -1)
+                folder_names[i] = dirs[i].Substring(pos + 1);
+        }
+
+        List<string> filter_dirs = new List<string>();
+        if (dirs.Length == 0)
+        { // 没有子目录
+            // 如果sub_folder_name不在skip_dirs内则设置assetbundlename
+            bool bFindit = false;
+            foreach (string skip_dir in skip_dirs)
+            {
+                if (string.Compare(skip_dir, sub_folder_name, true) == 0)
+                {
+                    bFindit = true;
+                    break;
+                }
+            }
+            if (!bFindit)
+            {
+                Debug.Log("collect valid asset bundle name: " + sub_dir);
+                filter_dirs.Add(sub_dir);
+            }
+            return filter_dirs;
+        }
+
+        //++bTopLevel;
+        foreach (string folder_name in folder_names)
+        {
+            List<string> sub_filter_dirs = GetFilterDirectories(root_path, sub_dir + "/" + folder_name/*, bTopLevel*/);
+            filter_dirs.AddRange(sub_filter_dirs);
+        }
+
+        return filter_dirs;
+    }
+
+    static void GetAllDirectories(string root_path, string sub_dir, ref List<string> outPathList)
+    {
+        string[] dirs = Directory.GetDirectories(root_path + sub_dir, "*", SearchOption.TopDirectoryOnly);
+        outPathList.Add(sub_dir);
+        if (dirs.Length > 0)
+        {
+            // 提取文件夹名
+            string[] folder_names = new string[dirs.Length];
+            for (int i = 0; i < dirs.Length; ++i)
+            {
+                int pos = dirs[i].LastIndexOf(@"\");
+                if (pos != -1)
+                    folder_names[i] = dirs[i].Substring(pos + 1);
+            }
+
+            foreach (string folder_name in folder_names)
+            {
+                GetAllDirectories(root_path, sub_dir + "/" + folder_name, ref outPathList);
+            }
+        }
+    }
+
+    static void ClearAssetBundleName(string root_path, string sub_dir)
+    {
+        List<string> OutPathList = new List<string>();
+        GetAllDirectories(@root_path, @sub_dir, ref OutPathList);
+        foreach (string folder in OutPathList)
+        {
+            AssetImporter importer = AssetImporter.GetAtPath(folder);
+            if (importer != null)
+            {
+                importer.assetBundleName = "";
+                //importer.assetBundleVariant = "";
+            }
+        }
+        AssetDatabase.RemoveUnusedAssetBundleNames();
+        AssetDatabase.Refresh();
+    }
+}
